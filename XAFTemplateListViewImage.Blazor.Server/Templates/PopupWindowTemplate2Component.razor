@@ -1,0 +1,65 @@
+﻿@using DevExpress.Blazor.Internal
+@using DevExpress.ExpressApp.Blazor
+@using DevExpress.ExpressApp.Blazor.Services
+@using DevExpress.ExpressApp.Blazor.Templates
+@using DevExpress.ExpressApp.Blazor.Components.Models
+
+@inherits FrameTemplateComponentBase<PopupWindowTemplate2>
+
+@FrameTemplate.Popup.GetComponentContent()
+
+@code {
+    public static RenderFragment Create(PopupWindowTemplate2 popupWindowTemplate) => @<PopupWindowTemplate2Component FrameTemplate="@popupWindowTemplate" />;
+    protected string MainCssClass => "main" + (FrameTemplate.View is DevExpress.ExpressApp.ListView ? " main-popup-listview" : null);
+
+    protected override void OnParametersSet() {
+        base.OnParametersSet();
+
+        FrameTemplate.Popup.HeaderContentTemplate = _ => __builder => {
+            <ViewCaptionComponent WindowCaption="@FrameTemplate" ViewCaptionLabelId="@FrameTemplate.ViewCaptionLabelId" ObjectCaptionLabelId="@FrameTemplate.ObjectCaptionLabelId" />
+        };
+        FrameTemplate.Popup.BodyContentTemplate = _ => __builder => {
+            <div class=@MainCssClass>
+                @if(FrameTemplate.IsActionsToolbarVisible && FrameTemplate.Toolbar.ContainsVisibleActionControl()) {
+                    <div class="main-toolbar px-1 pt-1 pb-2">
+                        @FrameTemplate.Toolbar.GetComponentContent()
+                    </div>
+                }
+                <div class="main-content">
+                    <ViewSiteComponent View="@FrameTemplate.View" />
+                </div>
+            </div>
+        };
+        FrameTemplate.Popup.FooterContentTemplate = _ => FrameTemplate.BottomToolbar.GetComponentContent();
+
+        FrameTemplate.Popup.Shown = EventCallback.Factory.Create<PopupShownEventArgs>(this, ReleaseLoadingIndicator);
+        FrameTemplate.Popup.Disposed = EventCallback.Factory.Create<PopupDisposedEventArgs>(this, ReleaseLoadingIndicator);
+    }
+
+    [Inject] private ILoadingIndicatorProvider LoadingIndicatorProvider { get; set; }
+    private const string Reason = "Popup Showing";
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        LoadingIndicatorProvider.Hold(Reason);
+    }
+    protected void ReleaseLoadingIndicator() {
+        LoadingIndicatorProvider.Release(Reason);
+    }
+
+    [Inject] private IDeviceInfoService DeviceInfoService { get; set; }
+    protected async override Task OnAfterRenderAsync(bool firstRender) {
+        await base.OnAfterRenderAsync(firstRender);
+        if(DeviceInfoService.DeviceInfo is null) {
+            await DeviceInfoService.InitializeDeviceInfo();
+        }
+        var deviceInfo = DeviceInfoService.DeviceInfo;
+        if(deviceInfo.IsMobileDevice) {
+            FrameTemplate.AllowDrag = false;
+            FrameTemplate.AllowResize = false;
+            FrameTemplate.PositionX = 0;
+            FrameTemplate.PositionY = 0;
+            FrameTemplate.Width = "100%";
+            FrameTemplate.Height = "100%";
+        }
+    }
+}
